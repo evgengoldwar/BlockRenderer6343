@@ -75,6 +75,8 @@ public abstract class WorldSceneRenderer {
     // the Blocks which this renderer needs to render
     public final LongSet renderedBlocks = new LongOpenHashSet();
     public final LongArrayList renderTranslucentBlocks = new LongArrayList();
+    // purely visual blocks (e.g. the render block of a formed multiblock), not part of the structure's materials
+    public final LongSet decorativeBlocks = new LongOpenHashSet();
     private Consumer<WorldSceneRenderer> beforeRender;
     private Consumer<WorldSceneRenderer> onRender;
     private Consumer<MovingObjectPosition> onLookingAt;

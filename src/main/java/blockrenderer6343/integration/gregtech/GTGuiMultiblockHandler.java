@@ -67,6 +67,8 @@ public class GTGuiMultiblockHandler extends GuiMultiblockHandler {
     private static final Pattern hintPattern = Pattern.compile("Hint \\d+ dot:");
 
     private boolean highlightHatch = false;
+    /** Show the special render some multiblocks get once formed, see {@link GTCustomRenders}. */
+    private static boolean showCustomRender = false;
 
     static {
         dotForPos.defaultReturnValue(9999);
@@ -91,6 +93,12 @@ public class GTGuiMultiblockHandler extends GuiMultiblockHandler {
         super.initGui();
         addToolbarButton("H", tooltip("hatch_highlight")).setClickAction(() -> highlightHatch = !highlightHatch)
                 .setActiveSupplier(() -> highlightHatch);
+        if (GTCustomRenders.hasCustomRender(renderingController)) {
+            addToolbarButton("\u2605", tooltip("custom_render")).setClickAction(() -> {
+                showCustomRender = !showCustomRender;
+                initializeSceneRenderer(false);
+            }).setActiveSupplier(() -> showCustomRender);
+        }
     }
 
     @Override
@@ -197,6 +205,15 @@ public class GTGuiMultiblockHandler extends GuiMultiblockHandler {
 
         if (mte instanceof INEIPreviewModifier modifier) {
             modifier.onPreviewStructureComplete(getBuildTriggerStack());
+        }
+
+        if (showCustomRender && GTCustomRenders.hasCustomRender(mte)) {
+            LongSet before = new LongOpenHashSet(renderer.world.blockMap.keySet());
+            if (GTCustomRenders.createRender(mte, getBuildTriggerStack())) {
+                for (long pos : renderer.world.blockMap.keySet()) {
+                    if (!before.contains(pos)) renderer.decorativeBlocks.add(pos);
+                }
+            }
         }
 
         ChannelDataAccessor.unsetChannelData(trigger, GTStructureChannels.HATCH.get());

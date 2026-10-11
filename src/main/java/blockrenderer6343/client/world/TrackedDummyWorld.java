@@ -32,6 +32,14 @@ public class TrackedDummyWorld extends DummyWorld {
 
     private int visibleYLevel = -1;
 
+    /**
+     * Let time pass like in a real world, so animated renders (e.g. of formed multiblocks) move in the preview.
+     */
+    @Override
+    public long getTotalWorldTime() {
+        return System.currentTimeMillis() / 50;
+    }
+
     @Override
     public boolean setBlock(int x, int y, int z, Block block, int meta, int flags) {
         long pos = CoordinatePacker.pack(x, y, z);

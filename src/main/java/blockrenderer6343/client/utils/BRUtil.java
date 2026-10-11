@@ -148,6 +148,7 @@ public class BRUtil {
         ItemStackAmount blocks = new ItemStackAmount();
 
         for (long renderedBlock : renderer.renderedBlocks) {
+            if (renderer.decorativeBlocks.contains(renderedBlock)) continue;
             int x = CoordinatePacker.unpackX(renderedBlock);
             int y = CoordinatePacker.unpackY(renderedBlock);
             int z = CoordinatePacker.unpackZ(renderedBlock);
