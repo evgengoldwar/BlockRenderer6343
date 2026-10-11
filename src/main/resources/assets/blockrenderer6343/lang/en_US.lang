@@ -37,7 +37,9 @@ blockrenderer6343.nei.help.layers=Scroll over a slider: step by step
 blockrenderer6343.nei.candidates.title=Can be placed: %s
 blockrenderer6343.nei.candidates.other=Other
 blockrenderer6343.nei.candidates.close=Close
-blockrenderer6343.nei.candidates.help=Scroll to see more, click an item for its recipe
+blockrenderer6343.nei.candidates.help=Scroll over the title: other group, over items: scroll
+blockrenderer6343.nei.candidates.previous=Previous group
+blockrenderer6343.nei.candidates.next=Next group
 
 nei.options.blockrenderer6343=BlockRenderer6343
 nei.options.blockrenderer6343.auto_fill_pattern=Auto fill fake pattern via NEI Overlay

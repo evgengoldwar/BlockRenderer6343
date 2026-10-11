@@ -35,7 +35,9 @@ blockrenderer6343.nei.help.layers=在滑块上滚动可逐级调整
 blockrenderer6343.nei.candidates.title=可放置: %s
 blockrenderer6343.nei.candidates.other=其他
 blockrenderer6343.nei.candidates.close=关闭
-blockrenderer6343.nei.candidates.help=滚动查看更多，点击物品查看配方
+blockrenderer6343.nei.candidates.help=在标题上滚动切换分组，在物品上滚动浏览
+blockrenderer6343.nei.candidates.previous=上一组
+blockrenderer6343.nei.candidates.next=下一组
 
 nei.options.blockrenderer6343=BlockRenderer6343
 nei.options.blockrenderer6343.auto_fill_pattern=通过NEI覆盖自动填入伪合成样板

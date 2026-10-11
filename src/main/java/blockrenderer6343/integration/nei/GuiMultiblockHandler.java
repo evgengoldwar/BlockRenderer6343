@@ -128,6 +128,8 @@ public abstract class GuiMultiblockHandler {
     protected Vector2i relativeMousePos = new Vector2i();
     /** Position and size of the preview, relative to the recipe origin. */
     protected int sceneX, sceneY, sceneWidth, sceneHeight;
+    /** Height of the 3D view, the preview minus the candidate strip when it is open. */
+    protected int viewHeight;
     private int buttonsInRow;
     protected String lastSearch = "";
     protected static Minecraft mc = Minecraft.getMinecraft();
@@ -461,6 +463,7 @@ public abstract class GuiMultiblockHandler {
         sceneY = RECIPE_LAYOUT_Y - recipePos.y;
         sceneWidth = RECIPE_WIDTH;
         sceneHeight = scaledScene;
+        viewHeight = candidatePanel.isEmpty() ? sceneHeight : Math.max(20, sceneHeight - CandidatePanel.HEIGHT);
         layoutWidgets();
 
         handleCameraInput();
@@ -484,7 +487,7 @@ public abstract class GuiMultiblockHandler {
                 RECIPE_LAYOUT_X + guiLeft,
                 RECIPE_LAYOUT_Y + guiTop,
                 RECIPE_WIDTH,
-                scaledScene,
+                viewHeight,
                 guiMouseX,
                 guiMouseY);
 
@@ -532,13 +535,7 @@ public abstract class GuiMultiblockHandler {
             toolbarX -= TOOLBAR_BUTTON_SIZE + 1;
         }
 
-        int panelWidth = Math.min(candidatePanel.getPreferredWidth(), sceneWidth - 4);
-        int panelTop = sceneY + TOOLBAR_BUTTON_SIZE + 4;
-        candidatePanel.setBounds(
-                sceneX + sceneWidth - panelWidth - 2,
-                panelTop,
-                panelWidth,
-                sceneY + sceneHeight - 2 - panelTop);
+        candidatePanel.setBounds(sceneX, sceneY + viewHeight, sceneWidth);
 
         int top = sceneY + sceneHeight + 3;
         int sliderWidth = actionButtons.isEmpty() ? sceneWidth : sceneWidth - ACTION_COLUMN_WIDTH - WIDGET_GAP;
@@ -589,7 +586,7 @@ public abstract class GuiMultiblockHandler {
             Vector3f rightDir = lookDir.cross(worldUp, new Vector3f()).normalize();
             Vector3f upDir = rightDir.cross(lookDir, new Vector3f()).normalize();
             // move the structure with the cursor: world units per gui pixel at the focus distance (fov = 60)
-            float unitsPerPixel = 1.1547f * zoom / Math.max(1, sceneHeight);
+            float unitsPerPixel = 1.1547f * zoom / Math.max(1, viewHeight);
             Vector3f offset = new Vector3f(
                     -mouseDeltaX * rightDir.x() + mouseDeltaY * upDir.x(),
                     -mouseDeltaX * rightDir.y() + mouseDeltaY * upDir.y(),
@@ -642,7 +639,7 @@ public abstract class GuiMultiblockHandler {
     private boolean isInsideView() {
         return guiMouseX >= guiLeft + RECIPE_LAYOUT_X && guiMouseX <= guiLeft + RECIPE_LAYOUT_X + RECIPE_WIDTH
                 && guiMouseY >= guiTop + RECIPE_LAYOUT_Y
-                && guiMouseY <= guiTop + RECIPE_LAYOUT_Y + (SCENE_HEIGHT * scaleFactor);
+                && guiMouseY < guiTop + RECIPE_LAYOUT_Y + viewHeight;
     }
 
     protected @NotNull String getMultiblockName() {

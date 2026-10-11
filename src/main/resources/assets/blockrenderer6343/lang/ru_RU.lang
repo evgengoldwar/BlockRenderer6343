@@ -36,7 +36,9 @@ blockrenderer6343.nei.help.layers=Колесо над ползунком: по �
 blockrenderer6343.nei.candidates.title=Можно поставить: %s
 blockrenderer6343.nei.candidates.other=Прочее
 blockrenderer6343.nei.candidates.close=Закрыть
-blockrenderer6343.nei.candidates.help=Колесо — прокрутка, клик по предмету — рецепт
+blockrenderer6343.nei.candidates.help=Колесо над заголовком — другая группа, над предметами — прокрутка
+blockrenderer6343.nei.candidates.previous=Предыдущая группа
+blockrenderer6343.nei.candidates.next=Следующая группа
 
 nei.options.blockrenderer6343=BlockRenderer6343
 nei.options.blockrenderer6343.auto_fill_pattern=Автозаполнение шаблона через NEI Overlay

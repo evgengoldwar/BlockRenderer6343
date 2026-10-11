@@ -21,30 +21,27 @@ import blockrenderer6343.client.utils.ColorUtils;
 import codechicken.nei.PositionedStack;
 
 /**
- * Scrollable list of the blocks that can be placed at the selected position, grouped by their kind (e.g. every tier of
- * an input bus under one heading). Every variant gets its own slot, nothing cycles.
+ * Compact strip docked under the 3D view listing the blocks that can be placed at the selected position. Candidates
+ * are grouped by kind (e.g. every tier of an input bus); one group is shown at a time as a single row of slots, the
+ * header switches between groups. The 3D view is shortened while the strip is open, so it never covers the structure.
  */
 public class CandidatePanel {
 
+    public static final int HEIGHT = 35;
+
     private static final int SLOT = 18;
-    private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 12;
-    private static final int LABEL_HEIGHT = 10;
-    private static final int SCROLLBAR_WIDTH = 3;
-    private static final int MAX_COLUMNS = 5;
-    private static final int MIN_WIDTH = 72;
+    private static final int ARROW_WIDTH = 9;
+    private static final int CLOSE_WIDTH = 10;
 
     private final List<Group> groups = new ArrayList<>();
-    private final List<Row> rows = new ArrayList<>();
     private final List<PositionedStack> visibleStacks = new ArrayList<>();
     private int totalCandidates;
-    private int columns = 1;
-    private int firstRow;
-    private int maxFirstRow;
-    private int lastVisibleRow;
+    private int currentGroup;
+    private int itemOffset;
     private boolean dirty = true;
 
-    private int x, y, width, height;
+    private int x, y, width;
     private Runnable closeAction;
 
     public void setCloseAction(Runnable closeAction) {
@@ -54,7 +51,8 @@ public class CandidatePanel {
     public void setCandidates(@NotNull List<List<ItemStack>> candidates) {
         groups.clear();
         totalCandidates = 0;
-        firstRow = 0;
+        currentGroup = 0;
+        itemOffset = 0;
 
         List<ItemStack> ungrouped = new ArrayList<>();
         for (List<ItemStack> candidate : candidates) {
@@ -68,16 +66,9 @@ public class CandidatePanel {
         }
 
         if (!ungrouped.isEmpty()) {
-            // only label the leftovers when there are named groups to tell them apart from
             String name = groups.isEmpty() ? null : I18n.format("blockrenderer6343.nei.candidates.other");
             groups.add(new Group(name, ungrouped));
         }
-
-        int widest = 1;
-        for (Group group : groups) {
-            widest = Math.max(widest, group.stacks.size());
-        }
-        columns = Math.min(MAX_COLUMNS, widest);
         dirty = true;
     }
 
@@ -94,65 +85,45 @@ public class CandidatePanel {
         return totalCandidates == 0;
     }
 
-    public int getPreferredWidth() {
-        return Math.max(MIN_WIDTH, columns * SLOT + PADDING * 2 + SCROLLBAR_WIDTH + 1);
-    }
-
-    public void setBounds(int x, int y, int width, int height) {
-        if (this.x != x || this.y != y || this.width != width || this.height != height) {
+    public void setBounds(int x, int y, int width) {
+        if (this.x != x || this.y != y || this.width != width) {
             this.x = x;
             this.y = y;
             this.width = width;
-            this.height = height;
             dirty = true;
         }
     }
 
-    private int contentTop() {
-        return y + HEADER_HEIGHT + 2;
+    private Group group() {
+        return groups.get(currentGroup);
     }
 
-    private int contentHeight() {
-        return height - HEADER_HEIGHT - 2 - PADDING;
+    private int rowY() {
+        return y + HEADER_HEIGHT + 1;
+    }
+
+    private int visibleSlots() {
+        return Math.max(1, (width - 6) / SLOT);
+    }
+
+    private int maxOffset() {
+        return Math.max(0, group().stacks.size() - visibleSlots());
+    }
+
+    private boolean hasMultipleGroups() {
+        return groups.size() > 1;
     }
 
     private void rebuild() {
         dirty = false;
-        rows.clear();
-        for (Group group : groups) {
-            if (group.name != null) rows.add(new Row(group.name, null));
-            for (int i = 0; i < group.stacks.size(); i += columns) {
-                rows.add(new Row(null, group.stacks.subList(i, Math.min(group.stacks.size(), i + columns))));
-            }
-        }
-
-        // the furthest we can scroll while still filling the visible area
-        int area = contentHeight();
-        int used = 0;
-        maxFirstRow = rows.size();
-        for (int i = rows.size() - 1; i >= 0; i--) {
-            used += rows.get(i).height();
-            if (used > area) break;
-            maxFirstRow = i;
-        }
-        firstRow = Math.max(0, Math.min(firstRow, maxFirstRow));
-
         visibleStacks.clear();
-        int rowY = contentTop();
-        int bottom = contentTop() + area;
-        lastVisibleRow = firstRow;
-        for (int i = firstRow; i < rows.size(); i++) {
-            Row row = rows.get(i);
-            if (rowY + row.height() > bottom) break;
-            row.y = rowY;
-            lastVisibleRow = i + 1;
-            if (row.stacks != null) {
-                for (int col = 0; col < row.stacks.size(); col++) {
-                    visibleStacks.add(
-                            new PositionedStack(row.stacks.get(col), x + PADDING + col * SLOT + 1, rowY + 1, false));
-                }
-            }
-            rowY += row.height();
+        if (isEmpty()) return;
+        itemOffset = Math.max(0, Math.min(itemOffset, maxOffset()));
+        List<ItemStack> stacks = group().stacks;
+        int end = Math.min(stacks.size(), itemOffset + visibleSlots());
+        for (int i = itemOffset; i < end; i++) {
+            int slotX = x + 3 + (i - itemOffset) * SLOT;
+            visibleStacks.add(new PositionedStack(stacks.get(i), slotX + 1, rowY() + 1, false));
         }
     }
 
@@ -166,67 +137,85 @@ public class CandidatePanel {
         if (isEmpty()) return;
         if (dirty) rebuild();
 
-        Minecraft mc = Minecraft.getMinecraft();
-        FontRenderer font = mc.fontRenderer;
+        FontRenderer font = Minecraft.getMinecraft().fontRenderer;
 
-        BRUtil.drawBorderedRect(
-                x,
-                y,
-                width,
-                height,
-                ColorUtils.withAlpha(ColorUtils.widgetBackground, 0xE8),
-                ColorUtils.opaque(ColorUtils.widgetBorder));
-        BRUtil.drawRect(x + 1, y + 1, x + width - 1, y + HEADER_HEIGHT, ColorUtils.opaque(ColorUtils.widgetHover));
+        BRUtil.drawRect(x, y, x + width, y + HEIGHT, ColorUtils.withAlpha(ColorUtils.widgetBackground, 0xF0));
+        BRUtil.drawRect(x, y, x + width, y + 1, ColorUtils.opaque(ColorUtils.accent));
+        BRUtil.drawRect(x, y + 1, x + width, y + HEADER_HEIGHT, ColorUtils.opaque(ColorUtils.widgetHover));
 
-        String title = I18n.format("blockrenderer6343.nei.candidates.title", totalCandidates);
-        font.drawStringWithShadow(font.trimStringToWidth(title, width - 16), x + 4, y + 3, 0xFFFFFF);
-
-        boolean closeHovered = isOverClose(mouse);
-        font.drawStringWithShadow("x", x + width - 9, y + 2, closeHovered ? 0xFF5555 : 0xA0A6B4);
-
-        for (int i = firstRow; i < lastVisibleRow; i++) {
-            Row row = rows.get(i);
-            if (row.label != null) {
-                font.drawStringWithShadow(
-                        trimmedLabel(font, row.label),
-                        x + PADDING + 1,
-                        row.y + 1,
-                        ColorUtils.accent.getColor() & 0xFFFFFF);
-            } else {
-                for (int col = 0; col < row.stacks.size(); col++) {
-                    BRUtil.drawSlot(x + PADDING + col * SLOT, row.y);
-                }
-            }
+        // header: < group name  1/3 >   x
+        int textLeft = x + 3;
+        int textRight = x + width - CLOSE_WIDTH - 1;
+        if (hasMultipleGroups()) {
+            drawArrow(font, "<", x + 1, isOverPrevious(mouse));
+            drawArrow(font, ">", textRight - ARROW_WIDTH, isOverNext(mouse));
+            textLeft = x + ARROW_WIDTH + 2;
+            textRight -= ARROW_WIDTH + 1;
         }
 
-        if (maxFirstRow > 0) {
-            int trackX = x + width - SCROLLBAR_WIDTH - 1;
-            int trackTop = contentTop();
-            int trackHeight = contentHeight();
-            BRUtil.drawRect(trackX, trackTop, trackX + SCROLLBAR_WIDTH, trackTop + trackHeight, 0x40FFFFFF);
-            int thumbHeight = Math.max(6, trackHeight * (rows.size() - maxFirstRow) / rows.size());
-            int thumbY = trackTop + (trackHeight - thumbHeight) * firstRow / maxFirstRow;
-            BRUtil.drawRect(
-                    trackX,
-                    thumbY,
-                    trackX + SCROLLBAR_WIDTH,
-                    thumbY + thumbHeight,
-                    ColorUtils.opaque(ColorUtils.accent));
+        String counter = hasMultipleGroups() ? " " + (currentGroup + 1) + "/" + groups.size() : "";
+        String name = group().name != null ? group().name
+                : I18n.format("blockrenderer6343.nei.candidates.title", totalCandidates);
+        int nameSpace = textRight - textLeft - font.getStringWidth(counter);
+        String shownName = font.getStringWidth(name) <= nameSpace ? name
+                : font.trimStringToWidth(name, Math.max(0, nameSpace - font.getStringWidth(".."))) + "..";
+        font.drawStringWithShadow(shownName, textLeft, y + 3, 0xFFFFFF);
+        font.drawStringWithShadow(counter, textLeft + font.getStringWidth(shownName), y + 3, 0x8A92A6);
+
+        font.drawStringWithShadow("x", x + width - 8, y + 2, isOverClose(mouse) ? 0xFF5555 : 0xA0A6B4);
+
+        // the row of slots
+        int shown = visibleStacks.size();
+        for (int i = 0; i < shown; i++) {
+            BRUtil.drawSlot(x + 3 + i * SLOT, rowY());
+        }
+
+        // horizontal scrollbar under the row
+        int max = maxOffset();
+        if (max > 0) {
+            int trackX = x + 3;
+            int trackWidth = width - 6;
+            int trackY = rowY() + SLOT + 1;
+            BRUtil.drawRect(trackX, trackY, trackX + trackWidth, trackY + 2, 0x40FFFFFF);
+            int size = group().stacks.size();
+            int thumbWidth = Math.max(6, trackWidth * visibleSlots() / size);
+            int thumbX = trackX + (trackWidth - thumbWidth) * itemOffset / max;
+            BRUtil.drawRect(thumbX, trackY, thumbX + thumbWidth, trackY + 2, ColorUtils.opaque(ColorUtils.accent));
         }
     }
 
-    private String trimmedLabel(FontRenderer font, String label) {
-        int available = width - PADDING * 2 - SCROLLBAR_WIDTH - 2;
-        if (font.getStringWidth(label) <= available) return label;
-        return font.trimStringToWidth(label, available - font.getStringWidth("..")) + "..";
+    private void drawArrow(FontRenderer font, String arrow, int arrowX, boolean hovered) {
+        if (hovered) {
+            BRUtil.drawRect(arrowX, y + 1, arrowX + ARROW_WIDTH, y + HEADER_HEIGHT, 0x40FFFFFF);
+        }
+        font.drawStringWithShadow(arrow, arrowX + 2, y + 3, hovered ? 0xFFFFFF : 0xA0A6B4);
     }
 
     public boolean isMouseOver(Vector2i mouse) {
-        return !isEmpty() && mouse.x >= x && mouse.x < x + width && mouse.y >= y && mouse.y < y + height;
+        return !isEmpty() && mouse.x >= x && mouse.x < x + width && mouse.y >= y && mouse.y < y + HEIGHT;
+    }
+
+    private boolean isOverHeader(Vector2i mouse) {
+        return isMouseOver(mouse) && mouse.y < y + HEADER_HEIGHT;
     }
 
     private boolean isOverClose(Vector2i mouse) {
-        return mouse.x >= x + width - 11 && mouse.x < x + width - 1 && mouse.y >= y + 1 && mouse.y < y + HEADER_HEIGHT;
+        return isOverHeader(mouse) && mouse.x >= x + width - CLOSE_WIDTH;
+    }
+
+    private boolean isOverPrevious(Vector2i mouse) {
+        return hasMultipleGroups() && isOverHeader(mouse) && mouse.x < x + 1 + ARROW_WIDTH;
+    }
+
+    private boolean isOverNext(Vector2i mouse) {
+        int arrowX = x + width - CLOSE_WIDTH - 1 - ARROW_WIDTH;
+        return hasMultipleGroups() && isOverHeader(mouse) && mouse.x >= arrowX && mouse.x < arrowX + ARROW_WIDTH;
+    }
+
+    private void switchGroup(int direction) {
+        currentGroup = Math.floorMod(currentGroup + direction, groups.size());
+        itemOffset = 0;
+        dirty = true;
     }
 
     /**
@@ -239,39 +228,51 @@ public class CandidatePanel {
             if (closeAction != null) closeAction.run();
             return true;
         }
-        return mouse.y < y + HEADER_HEIGHT;
+        if (isOverPrevious(mouse) || isOverNext(mouse)) {
+            BRButton.playClickSound();
+            switchGroup(isOverPrevious(mouse) ? -1 : 1);
+            return true;
+        }
+        return isOverHeader(mouse);
     }
 
     public boolean mouseScrolled(Vector2i mouse, int scroll) {
         if (!isMouseOver(mouse) || scroll == 0) return false;
-        if (dirty) rebuild();
-        int target = Math.max(0, Math.min(maxFirstRow, firstRow + (scroll > 0 ? -1 : 1)));
-        if (target != firstRow) {
-            firstRow = target;
+        if (isOverHeader(mouse)) {
+            if (hasMultipleGroups()) switchGroup(scroll > 0 ? -1 : 1);
+            return true;
+        }
+        int target = Math.max(0, Math.min(maxOffset(), itemOffset + (scroll > 0 ? -1 : 1)));
+        if (target != itemOffset) {
+            itemOffset = target;
             dirty = true;
         }
         return true;
     }
 
     public @NotNull List<String> getTooltip(Vector2i mouse) {
-        if (!isMouseOver(mouse)) return Collections.emptyList();
+        if (!isOverHeader(mouse)) return Collections.emptyList();
         if (isOverClose(mouse)) {
             return Collections.singletonList(I18n.format("blockrenderer6343.nei.candidates.close"));
         }
-        if (mouse.y < y + HEADER_HEIGHT) {
-            List<String> tooltip = new ArrayList<>();
-            String title = I18n.format("blockrenderer6343.nei.candidates.title", totalCandidates);
-            tooltip.add(EnumChatFormatting.WHITE + title);
-            tooltip.add(EnumChatFormatting.GRAY + I18n.format("blockrenderer6343.nei.candidates.help"));
-            return tooltip;
+        if (isOverPrevious(mouse)) {
+            return Collections.singletonList(I18n.format("blockrenderer6343.nei.candidates.previous"));
         }
-        for (int i = firstRow; i < lastVisibleRow; i++) {
-            Row row = rows.get(i);
-            if (row.label != null && mouse.y >= row.y && mouse.y < row.y + row.height()) {
-                return Collections.singletonList(row.label);
-            }
+        if (isOverNext(mouse)) {
+            return Collections.singletonList(I18n.format("blockrenderer6343.nei.candidates.next"));
         }
-        return Collections.emptyList();
+        List<String> tooltip = new ArrayList<>();
+        if (group().name != null) tooltip.add(EnumChatFormatting.WHITE + group().name);
+        tooltip.add(
+                EnumChatFormatting.GRAY + I18n.format("blockrenderer6343.nei.candidates.title", totalCandidates));
+        for (int i = 0; i < groups.size(); i++) {
+            Group other = groups.get(i);
+            if (other.name == null) continue;
+            EnumChatFormatting color = i == currentGroup ? EnumChatFormatting.AQUA : EnumChatFormatting.DARK_GRAY;
+            tooltip.add(color + " - " + other.name + " (" + other.stacks.size() + ")");
+        }
+        tooltip.add(EnumChatFormatting.DARK_GRAY + I18n.format("blockrenderer6343.nei.candidates.help"));
+        return tooltip;
     }
 
     private static class Group {
@@ -282,22 +283,6 @@ public class CandidatePanel {
         Group(String name, List<ItemStack> stacks) {
             this.name = name;
             this.stacks = stacks;
-        }
-    }
-
-    private static class Row {
-
-        final String label;
-        final List<ItemStack> stacks;
-        int y;
-
-        Row(String label, List<ItemStack> stacks) {
-            this.label = label;
-            this.stacks = stacks;
-        }
-
-        int height() {
-            return label != null ? LABEL_HEIGHT : SLOT;
         }
     }
 }
