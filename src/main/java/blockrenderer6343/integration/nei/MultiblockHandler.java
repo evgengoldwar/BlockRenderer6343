@@ -50,7 +50,10 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
     protected int oldRecipe;
     /** True while showing every multiblock (NEI "View all categories"), false when looking up a single item. */
     protected boolean showingAll;
-    /** Controllers of {@link #currentMultiblocks} while showing all of them, so NEI's search can find them by name. */
+    /**
+     * Controllers of {@link #currentMultiblocks}, placed off screen. They identify the recipe for NEI, so it can find
+     * the same multiblock again (e.g. when switching to "View all categories") and search for it by name.
+     */
     protected PositionedStack[] controllerStacks;
     protected static RecipeSearchField recipeSearchField;
     protected static final PositionedStack DUMMY_STACK = new PositionedStack(
@@ -145,11 +148,7 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         entries.sort(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER));
         currentMultiblocks = entries.stream().map(Map.Entry::getValue).toArray(IConstructable[]::new);
-        controllerStacks = new PositionedStack[currentMultiblocks.length];
-        for (int i = 0; i < currentMultiblocks.length; i++) {
-            // placed off screen like DUMMY_STACK, it is only there for the search
-            controllerStacks[i] = new PositionedStack(getConstructableStack(currentMultiblocks[i]), 0, 9999, false);
-        }
+        controllerStacks = createControllerStacks(currentMultiblocks);
     }
 
     private void loadRecipes(ItemStack stack) {
@@ -161,6 +160,16 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
         if (multiblocks.isEmpty()) return;
         lastStack = stack;
         currentMultiblocks = multiblocks.toArray(new IConstructable[0]);
+        controllerStacks = createControllerStacks(currentMultiblocks);
+    }
+
+    private PositionedStack[] createControllerStacks(IConstructable[] multiblocks) {
+        PositionedStack[] stacks = new PositionedStack[multiblocks.length];
+        for (int i = 0; i < multiblocks.length; i++) {
+            // off screen like DUMMY_STACK, never drawn
+            stacks[i] = new PositionedStack(getConstructableStack(multiblocks[i]), 0, 9999, false);
+        }
+        return stacks;
     }
 
     @Override
@@ -234,13 +243,21 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
     @Override
     public List<PositionedStack> getIngredientStacks(int recipe) {
-        return Collections.emptyList();
+        // NEI identifies a recipe by its ingredients, this lets it reopen the same multiblock in another view
+        PositionedStack controller = getControllerStack(recipe);
+        return controller == null ? Collections.emptyList() : Collections.singletonList(controller);
+    }
+
+    private @Nullable PositionedStack getControllerStack(int recipe) {
+        PositionedStack[] stacks = controllerStacks;
+        return stacks != null && recipe >= 0 && recipe < stacks.length ? stacks[recipe] : null;
     }
 
     @Override
     public PositionedStack getResultStack(int recipe) {
-        if (controllerStacks != null && recipe >= 0 && recipe < controllerStacks.length) {
-            return controllerStacks[recipe];
+        if (showingAll) {
+            PositionedStack controller = getControllerStack(recipe);
+            if (controller != null) return controller;
         }
         // There needs to be some sort of result stack for the in recipe search to work
         return DUMMY_STACK;
