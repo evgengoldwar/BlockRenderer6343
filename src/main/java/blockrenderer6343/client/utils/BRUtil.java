@@ -14,6 +14,8 @@ import java.util.stream.Collectors;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
@@ -370,5 +372,120 @@ public class BRUtil {
                     fontColor);
         }
         GL11.glPopMatrix();
+    }
+    public static void drawRect(int x1, int y1, int x2, int y2, int argb) {
+        Gui.drawRect(x1, y1, x2, y2, argb);
+    }
+
+    /** Draws a filled rectangle with a 1px border. */
+    public static void drawBorderedRect(int x, int y, int width, int height, int background, int border) {
+        Gui.drawRect(x, y, x + width, y + height, border);
+        Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1, background);
+    }
+
+    public static void drawGradientRect(int x1, int y1, int x2, int y2, int topColor, int bottomColor) {
+        float a1 = (topColor >> 24 & 255) / 255.0F;
+        float r1 = (topColor >> 16 & 255) / 255.0F;
+        float g1 = (topColor >> 8 & 255) / 255.0F;
+        float b1 = (topColor & 255) / 255.0F;
+        float a2 = (bottomColor >> 24 & 255) / 255.0F;
+        float r2 = (bottomColor >> 16 & 255) / 255.0F;
+        float g2 = (bottomColor >> 8 & 255) / 255.0F;
+        float b2 = (bottomColor & 255) / 255.0F;
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GL11.glShadeModel(GL11.GL_SMOOTH);
+        Tessellator tessellator = Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(r1, g1, b1, a1);
+        tessellator.addVertex(x2, y1, 0);
+        tessellator.addVertex(x1, y1, 0);
+        tessellator.setColorRGBA_F(r2, g2, b2, a2);
+        tessellator.addVertex(x1, y2, 0);
+        tessellator.addVertex(x2, y2, 0);
+        tessellator.draw();
+        GL11.glShadeModel(GL11.GL_FLAT);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_ALPHA_TEST);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+    }
+
+    /** Draws a dark translucent slot frame, used behind item stacks drawn over the preview. */
+    public static void drawSlot(int x, int y) {
+        drawBorderedRect(x, y, 18, 18, 0xA0101216, 0x80FFFFFF);
+    }
+
+    /**
+     * Draws the outline (and a faint fill) of the given world-space box. Expects texturing to be disabled and blending
+     * enabled.
+     */
+    public static void drawBoxHighlight(double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
+            int rgb, float fillAlpha, float lineAlpha) {
+        float r = (rgb >> 16 & 255) / 255.0F;
+        float g = (rgb >> 8 & 255) / 255.0F;
+        float b = (rgb & 255) / 255.0F;
+
+        if (fillAlpha > 0) {
+            GL11.glColor4f(r, g, b, fillAlpha);
+            GL11.glBegin(GL11.GL_QUADS);
+            // bottom & top
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glVertex3d(maxX, minY, minZ);
+            GL11.glVertex3d(maxX, minY, maxZ);
+            GL11.glVertex3d(minX, minY, maxZ);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glVertex3d(minX, maxY, maxZ);
+            GL11.glVertex3d(maxX, maxY, maxZ);
+            GL11.glVertex3d(maxX, maxY, minZ);
+            // north & south
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glVertex3d(maxX, maxY, minZ);
+            GL11.glVertex3d(maxX, minY, minZ);
+            GL11.glVertex3d(minX, minY, maxZ);
+            GL11.glVertex3d(maxX, minY, maxZ);
+            GL11.glVertex3d(maxX, maxY, maxZ);
+            GL11.glVertex3d(minX, maxY, maxZ);
+            // west & east
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glVertex3d(minX, minY, maxZ);
+            GL11.glVertex3d(minX, maxY, maxZ);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glVertex3d(maxX, minY, minZ);
+            GL11.glVertex3d(maxX, maxY, minZ);
+            GL11.glVertex3d(maxX, maxY, maxZ);
+            GL11.glVertex3d(maxX, minY, maxZ);
+            GL11.glEnd();
+        }
+
+        if (lineAlpha > 0) {
+            GL11.glColor4f(r, g, b, lineAlpha);
+            GL11.glBegin(GL11.GL_LINE_STRIP);
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glVertex3d(maxX, minY, minZ);
+            GL11.glVertex3d(maxX, minY, maxZ);
+            GL11.glVertex3d(minX, minY, maxZ);
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glEnd();
+            GL11.glBegin(GL11.GL_LINE_STRIP);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glVertex3d(maxX, maxY, minZ);
+            GL11.glVertex3d(maxX, maxY, maxZ);
+            GL11.glVertex3d(minX, maxY, maxZ);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glEnd();
+            GL11.glBegin(GL11.GL_LINES);
+            GL11.glVertex3d(minX, minY, minZ);
+            GL11.glVertex3d(minX, maxY, minZ);
+            GL11.glVertex3d(maxX, minY, minZ);
+            GL11.glVertex3d(maxX, maxY, minZ);
+            GL11.glVertex3d(maxX, minY, maxZ);
+            GL11.glVertex3d(maxX, maxY, maxZ);
+            GL11.glVertex3d(minX, minY, maxZ);
+            GL11.glVertex3d(minX, maxY, maxZ);
+            GL11.glEnd();
+        }
     }
 }

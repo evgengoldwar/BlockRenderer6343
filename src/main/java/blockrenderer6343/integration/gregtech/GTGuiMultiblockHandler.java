@@ -89,8 +89,8 @@ public class GTGuiMultiblockHandler extends GuiMultiblockHandler {
     @Override
     protected void initGui() {
         super.initGui();
-        addButtonInRow("H").setTooltip(I18n.format("blockrenderer6343.nei.hatch_highlight"))
-                .setClickAction(() -> highlightHatch = !highlightHatch);
+        addToolbarButton("H", tooltip("hatch_highlight")).setClickAction(() -> highlightHatch = !highlightHatch)
+                .setActiveSupplier(() -> highlightHatch);
     }
 
     @Override

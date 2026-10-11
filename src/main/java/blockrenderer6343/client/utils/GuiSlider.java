@@ -6,13 +6,11 @@ import java.util.function.IntSupplier;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.util.MathHelper;
 
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.opengl.GL11;
 
-import cpw.mods.fml.client.config.GuiUtils;
 import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
 import it.unimi.dsi.fastutil.ints.IntConsumer;
 
@@ -26,7 +24,7 @@ public class GuiSlider extends BRButton {
     private IntSupplier maxValueSupplier;
     private Int2ObjectFunction<String> valueStringSupplier;
     public final String name;
-    private float scale;
+    private float scale = 1f;
     private final int originalHeight;
 
     public GuiSlider(String name, int x, int y, int width, int height, int value, int minValue, int maxValue) {
@@ -66,6 +64,14 @@ public class GuiSlider extends BRButton {
         return maxValueSupplier == null ? maxValue : maxValueSupplier.getAsInt();
     }
 
+    public int getValue() {
+        return value;
+    }
+
+    private boolean isLocked() {
+        return maxValue <= minValue;
+    }
+
     @Override
     public void scalePosition(int scaledGuiHeight, float scale) {
         this.scale = scale;
@@ -75,22 +81,44 @@ public class GuiSlider extends BRButton {
 
     @Override
     public void drawButton(Minecraft mc, int mouseX, int mouseY) {
+        if (!visible) return;
         maxValue = getMaxValue();
-        mc.renderEngine.bindTexture(buttonTextures);
-        GL11.glColor4f(1F, 1F, 1F, 1F);
+        boolean hovered = isMouseOver(mouseX, mouseY) || dragging;
+        boolean locked = isLocked();
+
         GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glEnable(GL11.GL_BLEND);
-        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-        super.drawButton(mc, mouseX, mouseY);
-        float sliderValue = minValue == maxValue ? 1 : (float) (value - minValue) / (maxValue - minValue);
-        int pos = MathHelper.clamp_int((int) (xPosition + sliderValue * (width - 8)), xPosition, xPosition + width - 8);
-        GuiUtils.drawContinuousTexturedBox(pos, yPosition, 0, 66, 8, height, 200, 20, 2, 3, 2, 2, 0);
+        int border = hovered && !locked ? ColorUtils.opaque(ColorUtils.widgetBorderHover)
+                : ColorUtils.opaque(ColorUtils.widgetBorder);
+        int background = hovered && !locked ? ColorUtils.withAlpha(ColorUtils.widgetHover, 0xE6)
+                : ColorUtils.withAlpha(ColorUtils.widgetBackground, 0xD0);
+        BRUtil.drawBorderedRect(xPosition, yPosition, width, height, background, border);
+
+        if (!locked) {
+            float progress = (float) (value - minValue) / (maxValue - minValue);
+            int inner = width - 2;
+            int fill = MathHelper.clamp_int(Math.round(inner * progress), 0, inner);
+            if (fill > 0) {
+                BRUtil.drawRect(
+                        xPosition + 1,
+                        yPosition + 1,
+                        xPosition + 1 + fill,
+                        yPosition + height - 1,
+                        ColorUtils.withAlpha(ColorUtils.accent, hovered ? 0x90 : 0x60));
+            }
+            int knobX = MathHelper.clamp_int(xPosition + 1 + fill, xPosition + 2, xPosition + width - 2);
+            BRUtil.drawRect(knobX - 1, yPosition + 1, knobX + 1, yPosition + height - 1, 0xFFFFFFFF);
+        }
+
+        FontRenderer font = mc.fontRenderer;
+        String text = getText(font);
+        int color = locked ? 0x8A8F9C : hovered ? 0xFFFFFF : ColorUtils.widgetText.getColor() & 0xFFFFFF;
         BRUtil.drawCenteredScaledString(
-                getText(mc.fontRenderer),
+                text,
                 xPosition + (double) width / 2,
-                yPosition - 1 + height - (mc.fontRenderer.FONT_HEIGHT * scale),
-                isMouseOver(mouseX, mouseY) ? 0xFFFFA0 : 0xE0E0E0,
+                yPosition + (int) ((height - 7 * scale) / 2),
+                color,
                 scale);
+        GL11.glColor4f(1F, 1F, 1F, 1F);
     }
 
     public void setValue(int newValue) {
@@ -98,23 +126,27 @@ public class GuiSlider extends BRButton {
     }
 
     public void setValue(int newValue, boolean notify) {
-        value = MathHelper.clamp_int(newValue, minValue, maxValue);
+        value = MathHelper.clamp_int(newValue, minValue, Math.max(minValue, maxValue));
         if (notify && valueListener != null) valueListener.accept(value);
     }
 
     public void setValueFromMouse(int mouseX) {
-        setValue(Math.round(minValue + (maxValue - minValue) * (float) (mouseX - xPosition + 4) / (width - 8)));
+        if (isLocked()) return;
+        float progress = (float) (mouseX - xPosition - 1) / Math.max(1, width - 2);
+        setValue(Math.round(minValue + (maxValue - minValue) * progress));
     }
 
     public String getText(FontRenderer font) {
         String val = ": " + (valueStringSupplier == null ? value + "" : valueStringSupplier.apply(value));
-        String trimmed = font.trimStringToWidth(name, (int) (width / scale) - font.getStringWidth(val));
+        int available = (int) ((width - 4) / scale) - font.getStringWidth(val);
+        String trimmed = font.trimStringToWidth(name, Math.max(0, available));
         return trimmed + val;
     }
 
     @Override
     public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
         if (!isMouseOver(mouseX, mouseY)) return false;
+        maxValue = getMaxValue();
         setValueFromMouse(mouseX);
         dragging = true;
         playClickSound();
@@ -131,6 +163,7 @@ public class GuiSlider extends BRButton {
     @Override
     public boolean mouseScrolled(int mouseX, int mouseY, int scroll) {
         if (scroll == 0 || !isMouseOver(mouseX, mouseY) && !dragging) return false;
+        maxValue = getMaxValue();
         if (scroll > 0) setValue(value + 1);
         else setValue(value - 1);
         return true;

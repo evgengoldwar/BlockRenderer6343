@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import com.gtnewhorizon.structurelib.alignment.constructable.IConstructable;
 
+import blockrenderer6343.client.utils.BRUtil;
 import blockrenderer6343.client.utils.ConstructableData;
 import codechicken.nei.LayoutManager;
 import codechicken.nei.PositionedStack;
@@ -120,6 +121,11 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         guiHandler.recalculateSearch(recipeSearchField.text());
         guiHandler.drawMultiblock(recipe);
+
+        // give the candidate blocks drawn on top of the preview a slot frame so they stay readable
+        for (PositionedStack stack : recipeCacher.positionedResults) {
+            BRUtil.drawSlot(stack.relx - 1, stack.rely - 1);
+        }
     }
 
     public static @Nullable MultiblockHandler getHandlerFromGui(GuiScreen gui) {

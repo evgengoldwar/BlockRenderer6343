@@ -85,6 +85,7 @@ public abstract class WorldSceneRenderer {
     private final Vector3f worldUp = new Vector3f(0, 1, 0);
     protected Vector4i rect = new Vector4i();
     private boolean renderAllFaces = false;
+    private boolean clearColor = true;
     private final RenderBlocks bufferBuilder = new RenderBlocks();
 
     public WorldSceneRenderer(TrackedDummyWorld world) {
@@ -125,6 +126,30 @@ public abstract class WorldSceneRenderer {
                 this.renderedBlocks.add(pos);
             }
         }
+    }
+
+    /**
+     * Renders every layer from the bottom of the structure up to (and including) the given layer.
+     */
+    public void setRenderUpToYLayer(int layer) {
+        resetRenderedBlocks();
+        setRenderAllFaces(true);
+        world.setVisibleYLevel(-1);
+
+        int minY = (int) world.getMinPos().y();
+        for (long pos : world.blockMap.keySet()) {
+            if (CoordinatePacker.unpackY(pos) - minY <= layer) {
+                this.renderedBlocks.add(pos);
+            }
+        }
+    }
+
+    /**
+     * Whether the color buffer is cleared before rendering. Disable it to let a background drawn beforehand show
+     * through.
+     */
+    public void setClearColor(boolean clearColor) {
+        this.clearColor = clearColor;
     }
 
     public WorldSceneRenderer setOnLookingAt(Consumer<MovingObjectPosition> onLookingAt) {
@@ -239,6 +264,10 @@ public abstract class WorldSceneRenderer {
     }
 
     protected void clearView(int x, int y, int width, int height) {
+        if (!clearColor) {
+            glClear(GL_DEPTH_BUFFER_BIT);
+            return;
+        }
         int bg = ColorUtils.neiBackground.getColor();
         setGlClearColorFromInt(bg, bg >> 24);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -390,6 +419,6 @@ public abstract class WorldSceneRenderer {
                 (lookVec.x + startPos.xCoord),
                 (lookVec.y + startPos.yCoord),
                 (lookVec.z + startPos.zCoord));
-        return this.world.rayTraceBlocksWithTargetMap(startPos, endPos, world.blockMap.keySet());
+        return this.world.rayTraceBlocksWithTargetMap(startPos, endPos, renderedBlocks);
     }
 }
