@@ -50,6 +50,8 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
     protected int oldRecipe;
     /** True while showing every multiblock (NEI "View all categories"), false when looking up a single item. */
     protected boolean showingAll;
+    /** Controllers of {@link #currentMultiblocks} while showing all of them, so NEI's search can find them by name. */
+    protected PositionedStack[] controllerStacks;
     protected static RecipeSearchField recipeSearchField;
     protected static final PositionedStack DUMMY_STACK = new PositionedStack(
             new ItemStack(Items.poisonous_potato),
@@ -112,6 +114,7 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
     private void loadAllMultiblocks() {
         currentMultiblocks = null;
+        controllerStacks = null;
         oldRecipe = -1;
         showingAll = true;
 
@@ -130,10 +133,16 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         entries.sort(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER));
         currentMultiblocks = entries.stream().map(Map.Entry::getValue).toArray(IConstructable[]::new);
+        controllerStacks = new PositionedStack[currentMultiblocks.length];
+        for (int i = 0; i < currentMultiblocks.length; i++) {
+            // placed off screen like DUMMY_STACK, it is only there for the search
+            controllerStacks[i] = new PositionedStack(getConstructableStack(currentMultiblocks[i]), 0, 9999, false);
+        }
     }
 
     private void loadRecipes(ItemStack stack) {
         currentMultiblocks = null;
+        controllerStacks = null;
         oldRecipe = -1;
         showingAll = false;
         ObjectSet<IConstructable> multiblocks = tryLoadingMultiblocks(stack);
@@ -156,7 +165,8 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
                     ConstructableData.getTierData(multi).setTierFromStack(showingAll ? controller : lastStack));
         }
 
-        guiHandler.recalculateSearch(recipeSearchField.text());
+        // while listing every multiblock the search field looks for multiblocks instead of blocks in the preview
+        guiHandler.recalculateSearch(showingAll ? "" : recipeSearchField.text());
         guiHandler.drawMultiblock(recipe);
     }
 
@@ -217,6 +227,9 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
     @Override
     public PositionedStack getResultStack(int recipe) {
+        if (controllerStacks != null && recipe >= 0 && recipe < controllerStacks.length) {
+            return controllerStacks[recipe];
+        }
         // There needs to be some sort of result stack for the in recipe search to work
         return DUMMY_STACK;
     }
@@ -253,6 +266,9 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         @Override
         public boolean matches(ItemStack item) {
+            MultiblockHandler current = getHandlerFromGui(Minecraft.getMinecraft().currentScreen);
+            // when listing every multiblock, let the search filter them by their controller
+            if (current != null && current.showingAll) return false;
             GuiMultiblockHandler handler = getCurrentGuiHandler();
             if (handler != null && !LayoutManager.searchField.focused()) {
                 return recipeSearchField.isVisible() && recipeSearchField.focused()
