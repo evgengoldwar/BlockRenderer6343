@@ -112,6 +112,18 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
         super.loadUsageRecipes(inputId, ingredients);
     }
 
+    @Override
+    public void loadCraftingRecipes(ItemStack result) {
+        loadRecipes(result);
+        super.loadCraftingRecipes(result);
+    }
+
+    @Override
+    public void loadUsageRecipes(ItemStack ingredient) {
+        loadRecipes(ingredient);
+        super.loadUsageRecipes(ingredient);
+    }
+
     private void loadAllMultiblocks() {
         currentMultiblocks = null;
         controllerStacks = null;
