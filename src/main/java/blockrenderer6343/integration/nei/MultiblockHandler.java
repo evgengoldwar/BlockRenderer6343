@@ -1,7 +1,11 @@
 package blockrenderer6343.integration.nei;
 
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
@@ -44,6 +48,8 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
     protected GuiMultiblockHandler guiHandler;
     protected IConstructable[] currentMultiblocks;
     protected int oldRecipe;
+    /** True while showing every multiblock (NEI "View all categories"), false when looking up a single item. */
+    protected boolean showingAll;
     protected static RecipeSearchField recipeSearchField;
     protected static final PositionedStack DUMMY_STACK = new PositionedStack(
             new ItemStack(Items.poisonous_potato),
@@ -81,21 +87,55 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
     protected abstract @NotNull ObjectSet<IConstructable> tryLoadingMultiblocks(ItemStack candidate);
 
+    /**
+     * @return every multiblock this handler can preview, used when NEI asks for all recipes.
+     */
+    protected abstract @NotNull Collection<IConstructable> getAllMultiblocks();
+
     @Override
-    public void loadCraftingRecipes(ItemStack result) {
-        loadRecipes(result);
-        super.loadCraftingRecipes(result);
+    public void loadCraftingRecipes(String outputId, Object... results) {
+        if ("all".equals(outputId)) {
+            loadAllMultiblocks();
+            return;
+        }
+        super.loadCraftingRecipes(outputId, results);
     }
 
     @Override
-    public void loadUsageRecipes(ItemStack ingredient) {
-        loadRecipes(ingredient);
-        super.loadUsageRecipes(ingredient);
+    public void loadUsageRecipes(String inputId, Object... ingredients) {
+        if ("all".equals(inputId)) {
+            loadAllMultiblocks();
+            return;
+        }
+        super.loadUsageRecipes(inputId, ingredients);
+    }
+
+    private void loadAllMultiblocks() {
+        currentMultiblocks = null;
+        oldRecipe = -1;
+        showingAll = true;
+
+        List<Map.Entry<String, IConstructable>> entries = new ArrayList<>();
+        for (IConstructable multiblock : getAllMultiblocks()) {
+            try {
+                ItemStack stack = getConstructableStack(multiblock);
+                // noinspection ConstantConditions
+                if (stack == null || stack.getItem() == null) continue;
+                entries.add(new AbstractMap.SimpleEntry<>(stack.getDisplayName(), multiblock));
+            } catch (Exception ignored) {
+                // a broken multiblock should not prevent listing the others
+            }
+        }
+        if (entries.isEmpty()) return;
+
+        entries.sort(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER));
+        currentMultiblocks = entries.stream().map(Map.Entry::getValue).toArray(IConstructable[]::new);
     }
 
     private void loadRecipes(ItemStack stack) {
         currentMultiblocks = null;
         oldRecipe = -1;
+        showingAll = false;
         ObjectSet<IConstructable> multiblocks = tryLoadingMultiblocks(stack);
         if (multiblocks.isEmpty()) return;
         lastStack = stack;
@@ -109,10 +149,11 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
         if (oldRecipe != recipe) {
             oldRecipe = recipe;
             IConstructable multi = currentMultiblocks[recipe];
+            ItemStack controller = getConstructableStack(multi);
             guiHandler.loadMultiblock(
                     multi,
-                    getConstructableStack(multi),
-                    ConstructableData.getTierData(multi).setTierFromStack(lastStack));
+                    controller,
+                    ConstructableData.getTierData(multi).setTierFromStack(showingAll ? controller : lastStack));
         }
 
         guiHandler.recalculateSearch(recipeSearchField.text());

@@ -1,5 +1,8 @@
 package blockrenderer6343.integration.structurelib;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import net.minecraft.item.ItemStack;
 
 import org.jetbrains.annotations.NotNull;
@@ -41,6 +44,12 @@ public class StructureCompatNEIHandler extends MultiblockHandler {
     @Override
     public TemplateRecipeHandler newInstance() {
         return new StructureCompatNEIHandler();
+    }
+
+    @Override
+    protected @NotNull Collection<IConstructable> getAllMultiblocks() {
+        // filled by the background scan, empty until it has finished
+        return stacks == null ? Collections.emptyList() : stacks.keySet();
     }
 
     @Override

@@ -3,6 +3,7 @@ package blockrenderer6343.integration.gregtech;
 import static gregtech.api.GregTechAPI.METATILEENTITIES;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import net.minecraft.item.ItemStack;
@@ -58,6 +59,11 @@ public class GTNEIMultiblockHandler extends MultiblockHandler {
     @Override
     public @NotNull ItemStack getConstructableStack(IConstructable multiblock) {
         return ((IMetaTileEntity) multiblock).getStackForm(1);
+    }
+
+    @Override
+    protected @NotNull Collection<IConstructable> getAllMultiblocks() {
+        return multiblocksList;
     }
 
     @Override
