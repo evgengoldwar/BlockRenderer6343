@@ -1,8 +1,5 @@
 package blockrenderer6343.integration.nei;
 
-import static blockrenderer6343.integration.nei.GuiMultiblockHandler.SLOT_SIZE;
-
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,7 +17,6 @@ import org.jetbrains.annotations.Nullable;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import com.gtnewhorizon.structurelib.alignment.constructable.IConstructable;
 
-import blockrenderer6343.client.utils.BRUtil;
 import blockrenderer6343.client.utils.ConstructableData;
 import codechicken.nei.LayoutManager;
 import codechicken.nei.PositionedStack;
@@ -121,11 +117,6 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         guiHandler.recalculateSearch(recipeSearchField.text());
         guiHandler.drawMultiblock(recipe);
-
-        // give the candidate blocks drawn on top of the preview a slot frame so they stay readable
-        for (PositionedStack stack : recipeCacher.positionedResults) {
-            BRUtil.drawSlot(stack.relx - 1, stack.rely - 1);
-        }
     }
 
     public static @Nullable MultiblockHandler getHandlerFromGui(GuiScreen gui) {
@@ -200,28 +191,11 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
     public void setResults(List<List<ItemStack>> results) {
         arecipes.clear();
-        recipeCacher.setResults(results);
+        guiHandler.getCandidatePanel().setCandidates(results);
         arecipes.add(recipeCacher);
     }
 
     public class RecipeCacher extends CachedRecipe {
-
-        private final List<PositionedStack> positionedResults = new ArrayList<>();
-
-        public void setResults(List<List<ItemStack>> results) {
-            positionedResults.clear();
-            int columnCount = results.size() / CANDIDATE_IN_COlUMN + 1;
-            int realCandidateInColumn = results.size() % columnCount == 0 ? results.size() / columnCount
-                    : results.size() / columnCount + 1;
-            for (int i = 0; i < results.size(); i++) {
-                PositionedStack result = new PositionedStack(
-                        results.get(i),
-                        CANDIDATE_SLOTS_X - (columnCount - 1) * SLOT_SIZE + (i / realCandidateInColumn) * SLOT_SIZE,
-                        CANDIDATE_SLOTS_Y + (i % realCandidateInColumn) * SLOT_SIZE);
-                result.generatePermutations();
-                positionedResults.add(result);
-            }
-        }
 
         @Override
         public PositionedStack getResult() {
@@ -230,7 +204,7 @@ public abstract class MultiblockHandler extends TemplateRecipeHandler {
 
         @Override
         public List<PositionedStack> getOtherStacks() {
-            return getCycledIngredients(cycleticks / 20, positionedResults);
+            return guiHandler.getCandidatePanel().getVisibleStacks();
         }
     }
 

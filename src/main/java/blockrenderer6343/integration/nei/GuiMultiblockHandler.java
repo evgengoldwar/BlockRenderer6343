@@ -122,6 +122,8 @@ public abstract class GuiMultiblockHandler {
     protected final ObjectList<BRButton> actionButtons = new ObjectArrayList<>();
     protected final ObjectList<BRButton> toolbarButtons = new ObjectArrayList<>();
     protected GuiSlider tierSlider;
+    /** Blocks that can be placed at the selected position. */
+    protected final CandidatePanel candidatePanel = new CandidatePanel();
     protected GuiSlider layerSlider;
     protected Vector2i relativeMousePos = new Vector2i();
     /** Position and size of the preview, relative to the recipe origin. */
@@ -130,7 +132,20 @@ public abstract class GuiMultiblockHandler {
     protected String lastSearch = "";
     protected static Minecraft mc = Minecraft.getMinecraft();
 
+    {
+        candidatePanel.setCloseAction(this::clearSelection);
+    }
+
     protected abstract void placeMultiblock();
+
+    protected void clearSelection() {
+        SELECTED_BLOCK.set(NO_SELECTED_BLOCK);
+        onCandidateChanged.accept(Collections.emptyList());
+    }
+
+    public @NotNull CandidatePanel getCandidatePanel() {
+        return candidatePanel;
+    }
 
     public void loadMultiblock(IConstructable multiblock, ItemStack stackForm, @NotNull ConstructableData data) {
         renderingController = multiblock;
@@ -482,6 +497,7 @@ public abstract class GuiMultiblockHandler {
         for (BRButton button : allButtons) {
             button.drawButton(mc, relativeMousePos.x, relativeMousePos.y);
         }
+        candidatePanel.draw(relativeMousePos);
         GL11.glPopAttrib();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 
@@ -515,6 +531,14 @@ public abstract class GuiMultiblockHandler {
             toolbarButtons.get(i).setBounds(toolbarX, sceneY + 2, TOOLBAR_BUTTON_SIZE, TOOLBAR_BUTTON_SIZE);
             toolbarX -= TOOLBAR_BUTTON_SIZE + 1;
         }
+
+        int panelWidth = Math.min(candidatePanel.getPreferredWidth(), sceneWidth - 4);
+        int panelTop = sceneY + TOOLBAR_BUTTON_SIZE + 4;
+        candidatePanel.setBounds(
+                sceneX + sceneWidth - panelWidth - 2,
+                panelTop,
+                panelWidth,
+                sceneY + sceneHeight - 2 - panelTop);
 
         int top = sceneY + sceneHeight + 3;
         int sliderWidth = actionButtons.isEmpty() ? sceneWidth : sceneWidth - ACTION_COLUMN_WIDTH - WIDGET_GAP;
@@ -608,6 +632,7 @@ public abstract class GuiMultiblockHandler {
     }
 
     protected boolean isOverWidget() {
+        if (candidatePanel.isMouseOver(relativeMousePos)) return true;
         for (BRButton button : allButtons) {
             if (button.isMouseOver(relativeMousePos)) return true;
         }
@@ -668,6 +693,10 @@ public abstract class GuiMultiblockHandler {
     }
 
     public boolean handleMouseScrollUp(int scrolled) {
+        if (candidatePanel.mouseScrolled(relativeMousePos, scrolled)) {
+            return true;
+        }
+
         for (BRButton button : allButtons) {
             if (button.mouseScrolled(relativeMousePos.x, relativeMousePos.y, scrolled)) {
                 return true;
@@ -782,13 +811,16 @@ public abstract class GuiMultiblockHandler {
         if (button == 0) {
             for (BRButton buttons : allButtons) {
                 if (buttons.mousePressed(mc, relativeMousePos.x, relativeMousePos.y)) {
-                    SELECTED_BLOCK.set(NO_SELECTED_BLOCK);
-                    onCandidateChanged.accept(Collections.emptyList());
+                    clearSelection();
                     return true;
                 }
             }
 
-            if (renderer != null && isInsideView()) {
+            if (candidatePanel.mouseClicked(relativeMousePos)) return true;
+            // clicks on the listed items are handled by NEI (open recipes etc.)
+            if (candidatePanel.isMouseOver(relativeMousePos)) return false;
+
+            if (renderer != null && isInsideView() && !isOverWidget()) {
                 long now = System.currentTimeMillis();
                 if (now - lastSceneClick < DOUBLE_CLICK_MS) {
                     lastSceneClick = 0;
@@ -800,12 +832,12 @@ public abstract class GuiMultiblockHandler {
             return false;
         }
         if (button == 1 && renderer != null) {
+            if (candidatePanel.isMouseOver(relativeMousePos)) return false;
             if (isOverWidget()) return true;
             MovingObjectPosition rayTrace = renderer.getLastTraceResult();
             if (rayTrace == null) {
                 if (SELECTED_BLOCK.asLong() != NO_SELECTED_BLOCK) {
-                    SELECTED_BLOCK.set(NO_SELECTED_BLOCK);
-                    onCandidateChanged.accept(Collections.emptyList());
+                    clearSelection();
                     return true;
                 }
                 return false;
@@ -813,8 +845,7 @@ public abstract class GuiMultiblockHandler {
             long pos = CoordinatePacker.pack(rayTrace.blockX, rayTrace.blockY, rayTrace.blockZ);
             if (pos == SELECTED_BLOCK.asLong()) {
                 // clicking the selected block again deselects it
-                SELECTED_BLOCK.set(NO_SELECTED_BLOCK);
-                onCandidateChanged.accept(Collections.emptyList());
+                clearSelection();
                 return true;
             }
             onCandidateChanged.accept(
@@ -882,6 +913,11 @@ public abstract class GuiMultiblockHandler {
     public @NotNull List<String> getTooltip() {
         if (tooltipBlockStack != null) {
             return getHoveredTooltip(tooltipBlockStack);
+        }
+
+        List<String> panelTooltip = candidatePanel.getTooltip(relativeMousePos);
+        if (!panelTooltip.isEmpty()) {
+            return panelTooltip;
         }
 
         for (BRButton button : allButtons) {

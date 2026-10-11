@@ -33,6 +33,10 @@ blockrenderer6343.nei.help.pan=СКМ + тянуть: перемещение
 blockrenderer6343.nei.help.select=ПКМ по блоку: допустимые варианты
 blockrenderer6343.nei.help.reset=Двойной клик: сбросить вид
 blockrenderer6343.nei.help.layers=Колесо над ползунком: по шагу
+blockrenderer6343.nei.candidates.title=Можно поставить: %s
+blockrenderer6343.nei.candidates.other=Прочее
+blockrenderer6343.nei.candidates.close=Закрыть
+blockrenderer6343.nei.candidates.help=Колесо — прокрутка, клик по предмету — рецепт
 
 nei.options.blockrenderer6343=BlockRenderer6343
 nei.options.blockrenderer6343.auto_fill_pattern=Автозаполнение шаблона через NEI Overlay

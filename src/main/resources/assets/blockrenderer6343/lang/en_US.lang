@@ -34,6 +34,10 @@ blockrenderer6343.nei.help.pan=Middle drag: move
 blockrenderer6343.nei.help.select=Right click a block: valid variants
 blockrenderer6343.nei.help.reset=Double click: reset view
 blockrenderer6343.nei.help.layers=Scroll over a slider: step by step
+blockrenderer6343.nei.candidates.title=Can be placed: %s
+blockrenderer6343.nei.candidates.other=Other
+blockrenderer6343.nei.candidates.close=Close
+blockrenderer6343.nei.candidates.help=Scroll to see more, click an item for its recipe
 
 nei.options.blockrenderer6343=BlockRenderer6343
 nei.options.blockrenderer6343.auto_fill_pattern=Auto fill fake pattern via NEI Overlay
